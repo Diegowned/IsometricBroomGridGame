@@ -51,5 +51,5 @@
         "temp/": true,
         "Temp/": true
     },
-    "dotnet.defaultSolution": "IsometricBossFights.sln"
+    "dotnet.defaultSolution": "IsometricBroomGridGame.sln"
 }

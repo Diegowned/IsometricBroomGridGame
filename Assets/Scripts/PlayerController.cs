@@ -7,6 +7,8 @@ public class PlayerController : MonoBehaviour {
     public int health = 3;
     public bool isAttacking = false;
 
+    public bool isTransitioning = false;
+
 [Header("Visual Aiming")]
 public LineRenderer aimLine;
 public float maxLineDistance = 50f;
@@ -32,9 +34,11 @@ public LayerMask bossLayer; // Set this to the "Boss" layer in the Inspector
     }
 
 void Update() {
-        HandleMovementInput(); // WASD Movement
-        HandleRotation();       // Twin-stick aiming
-        HandleShooting();       // Mouse/Controller Fire
+        if (isTransitioning) return; 
+
+        HandleMovementInput(); 
+        HandleRotation();      
+        HandleShooting();       
         UpdateAimLine();
         
         CheckTileSafety();
@@ -151,11 +155,19 @@ private void TryMove(int xDir, int yDir) {
     int targetX = currentX + xDir;
     int targetY = currentY + yDir;
 
-  
     if (gridManager.IsValidMove(targetX, targetY)) {
+        
+        // Check if the tile the player is stepping on is the special Exit Door
+        if (targetX == gridManager.width / 2 && targetY == gridManager.height) {
+            if (gridManager.exitTile != null && gridManager.exitTile.isExitUnlocked) {
+                // Player successfully exits the arena
+                gridManager.StartArenaTransition(this);
+                return; // Stop standard movement so transition can take over
+            }
+        }
+
         currentX = targetX;
         currentY = targetY;
-
         transform.position = gridManager.GetWorldPos(currentX, currentY);
     }
 }

@@ -63,7 +63,7 @@ MeshRenderer:
   m_RenderingLayerMask: 1
   m_RendererPriority: 0
   m_Materials:
-  - {fileID: 2100000, guid: 31321ba15b8f8eb4c954353edc038b1d, type: 2}
+  - {fileID: 2100000, guid: a0e4afc3bc98f4d4cb61266fa0c9a4bf, type: 2}
   m_StaticBatchInfo:
     firstSubMesh: 0
     subMeshCount: 0
@@ -120,4 +120,15 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   coords: {x: 0, y: 0}
   isWalkable: 1
-  fireEffect: {fileID: 0}
+  meshRenderer: {fileID: 0}
+  normalColor: {r: 1, g: 1, b: 1, a: 1}
+  warningColor: {r: 1, g: 0.92156863, b: 0.015686275, a: 1}
+  attackingColor: {r: 1, g: 0, b: 0, a: 1}
+  fireColor: {r: 1, g: 0.5, b: 0, a: 1}
+  destructionWarningColor: {r: 0.6, g: 0, b: 1, a: 1}
+  isEntrance: 0
+  isExit: 0
+  isExitUnlocked: 0
+  entranceColor: {r: 1, g: 0, b: 0.4934969, a: 1}
+  exitLockedColor: {r: 1, g: 0, b: 0.1816144, a: 1}
+  exitUnlockedColor: {r: 0, g: 1, b: 0, a: 1}

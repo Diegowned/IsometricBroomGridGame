@@ -1,27 +1,33 @@
 using UnityEngine;
 using System.Collections;
 using System.Collections.Generic;
+using UnityEngine.UI;
 
 public class BossController : MonoBehaviour {
     public GridManager grid;
     public List<BossPhase> phases;
-    public BossVisuals visuals; // Assign in Inspector
+    public BossVisuals visuals; 
     private Coroutine orbitCoroutine;
 
     [Header("Stats")]
     public float maxHealth = 100f;
     private float currentHealth;
     
+    [Header("UI")]
+    public Image healthBarFill;
+
     private int currentPhaseIndex = 0;
     private int currentAttackIndex = 0;
     private bool isPhaseTransitioning = false;
 
-    // Movement settings for the Boss
     public int bossX = 3, bossY = 3; 
 
-    void Start() {
+void Start() {
         currentHealth = maxHealth;
-        transform.position = grid.GetWorldPos(bossX, bossY);
+        UpdateHealthBar(); 
+        
+        visuals.UpdateTargetPosition(grid.GetWorldPos(bossX, bossY));
+        
         StartCoroutine(BossLoop());
         StartCoroutine(PhaseBehaviorMonitor());
     }
@@ -53,35 +59,30 @@ IEnumerator PhaseBehaviorMonitor() {
             BossPhase currentPhase = phases[currentPhaseIndex];
 
             if (currentPhase.continuousOrbit && orbitCoroutine == null) {
-                // Start orbiting if the phase calls for it and we aren't already
                 orbitCoroutine = StartCoroutine(OrbitRoutine());
             } 
             else if (!currentPhase.continuousOrbit && orbitCoroutine != null) {
-                // Stop orbiting if the phase changes to one without it
                 StopCoroutine(orbitCoroutine);
                 orbitCoroutine = null;
             }
-            yield return new WaitForSeconds(0.5f); // Check periodically
+            yield return new WaitForSeconds(0.5f);
         }
     }
 
 
 IEnumerator OrbitRoutine() {
         while (true) {
-            // Calculate the path once per loop
             List<Vector2Int> path = GetPerimeterPath(grid.width, grid.height);
             
             foreach (Vector2Int tile in path) {
                 bossX = tile.x;
                 bossY = tile.y;
                 
-                // Update visuals only, do NOT 'yield return' a Wait call here 
-                // if you want attacks to trigger simultaneously.
-                // Instead, we wait for a set time or use visuals.IsAtTarget()
+
                 visuals.UpdateTargetPosition(grid.GetWorldPos(bossX, bossY));
                 
                 while (!visuals.IsAtTarget()) {
-                    yield return null; // Wait for visual arrival without blocking BossLoop
+                    yield return null; 
                 }
             }
         }
@@ -96,39 +97,65 @@ private List<Vector2Int> GetPerimeterPath(int w, int h) {
     }
 
 IEnumerator BossLoop() {
-    while (currentHealth > 0) {
-        BossPhase currentPhase = phases[currentPhaseIndex];
-        BossAttack currentAttack = currentPhase.attackSequence[currentAttackIndex];
+        while (currentHealth > 0) {
+            BossPhase currentPhase = phases[currentPhaseIndex];
+            BossAttack currentAttack = currentPhase.attackSequence[currentAttackIndex];
 
-        visuals.SetVisualState(true);
-        
-        yield return StartCoroutine(currentAttack.Execute(this, grid));
+            // Turn Red
+            visuals.SetVisualState(true);
+            
+            // --- NEW: Do a quick anticipation bounce! ---
+            if (visuals != null) visuals.TriggerBounce();
+            
+            // Wait for the attack logic to finish
+            yield return StartCoroutine(currentAttack.Execute(this, grid));
 
-        // End Attack Visuals
-        visuals.SetVisualState(false);
+            // End Attack Visuals (Turn Gray)
+            visuals.SetVisualState(false);
 
-        currentAttackIndex++;
-        if (currentAttackIndex >= currentPhase.attackSequence.Count) {
-            currentAttackIndex = 0;
+            currentAttackIndex++;
+            if (currentAttackIndex >= currentPhase.attackSequence.Count) {
+                currentAttackIndex = 0;
+            }
+
+            yield return new WaitForSeconds(1f);
         }
-
-        yield return new WaitForSeconds(1f);
     }
-}
-
 public void MoveBoss(int x, int y) {
-    bossX = x;
-    bossY = y;
-    visuals.UpdateTargetPosition(grid.GetWorldPos(x, y));
-}
+        bossX = x;
+        bossY = y;
+        visuals.UpdateTargetPosition(grid.GetWorldPos(x, y));
+    }
 
-    public void TakeDamage(float amount) {
+public void TakeDamage(float amount) {
         currentHealth -= amount;
         Debug.Log("Boss hit! Remaining health: " + currentHealth);
-        CheckPhaseTransition(); 
+        
+        UpdateHealthBar(); 
+        
+        if (visuals != null) {
+            visuals.TriggerShake(amount);
+        }
+
+        if (currentHealth <= 0) {
+            if (grid != null) grid.EnemyDefeated(this);
+            
+            Canvas healthCanvas = GetComponentInChildren<Canvas>();
+            if (healthCanvas != null) healthCanvas.gameObject.SetActive(false);
+            
+            Destroy(gameObject); 
+        } else {
+            CheckPhaseTransition(); 
+        }
     }
 
-    void CheckPhaseTransition() {
+    private void UpdateHealthBar() {
+        if (healthBarFill != null) {
+            healthBarFill.fillAmount = currentHealth / maxHealth;
+        }
+    }
+
+void CheckPhaseTransition() {
         if (currentPhaseIndex + 1 < phases.Count) {
             float healthPercent = currentHealth / maxHealth;
             if (healthPercent <= phases[currentPhaseIndex + 1].healthThreshold) {
@@ -139,30 +166,24 @@ public void MoveBoss(int x, int y) {
         }
     }
 
-// Helper methods for the Debug UI
 public float GetCurrentHealth() => currentHealth;
-public int GetCurrentPhaseIndex() => currentPhaseIndex;
-public BossAttack GetCurrentAttack() {
-    if (phases.Count > 0 && currentPhaseIndex < phases.Count) {
-        var sequence = phases[currentPhaseIndex].attackSequence;
-        if (currentAttackIndex < sequence.Count) {
-            return sequence[currentAttackIndex];
+    public int GetCurrentPhaseIndex() => currentPhaseIndex;
+    public BossAttack GetCurrentAttack() {
+        if (phases.Count > 0 && currentPhaseIndex < phases.Count) {
+            var sequence = phases[currentPhaseIndex].attackSequence;
+            if (currentAttackIndex < sequence.Count) {
+                return sequence[currentAttackIndex];
+            }
         }
+        return null;
     }
-    return null;
-}
 
 public IEnumerator MoveBossAndWait(int x, int y) {
-    bossX = x; 
-    bossY = y;
-    
-    // Tell visuals where to go
-    visuals.UpdateTargetPosition(grid.GetWorldPos(x, y)); 
-    
-    // Wait until the visual object physically arrives at the destination
-    while (!visuals.IsAtTarget()) {
-        yield return null;
+        bossX = x; 
+        bossY = y;
+        visuals.UpdateTargetPosition(grid.GetWorldPos(x, y)); 
+        while (!visuals.IsAtTarget()) {
+            yield return null;
+        }
     }
-}
-
 }
