@@ -158,11 +158,16 @@ private void TryMove(int xDir, int yDir) {
     if (gridManager.IsValidMove(targetX, targetY)) {
         
         // Check if the tile the player is stepping on is the special Exit Door
+// Check if the tile the player is stepping on is the special Exit Door
         if (targetX == gridManager.width / 2 && targetY == gridManager.height) {
             if (gridManager.exitTile != null && gridManager.exitTile.isExitUnlocked) {
-                // Player successfully exits the arena
-                gridManager.StartArenaTransition(this);
-                return; // Stop standard movement so transition can take over
+                
+                // --- CHANGED: Open the Map UI instead of immediately transitioning ---
+                if (gridManager.mapManager != null) {
+                    gridManager.mapManager.OpenMap();
+                }
+                
+                return; // Stop standard movement
             }
         }
 

@@ -1,0 +1,31 @@
+%YAML 1.1
+%TAG !u! tag:unity3d.com,2011:
+--- !u!114 &11400000
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 0}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 58ec9f83a63cab24393eeb063edd48d8, type: 3}
+  m_Name: ArenaWithHoles
+  m_EditorClassIdentifier: 
+  tier: 1
+  difficulty: 1
+  width: 7
+  height: 7
+  emptyTiles:
+  - {x: 3, y: 3}
+  - {x: 3, y: 4}
+  enemies:
+  - enemyPrefab: {fileID: 4643946010321537983, guid: c9e1ddd669b2dd549aa159a8fe357eb9,
+      type: 3}
+    spawnCoordinate: {x: 2, y: 5}
+  - enemyPrefab: {fileID: 4643946010321537983, guid: c9e1ddd669b2dd549aa159a8fe357eb9,
+      type: 3}
+    spawnCoordinate: {x: 4, y: 4}
+  - enemyPrefab: {fileID: 4643946010321537983, guid: c9e1ddd669b2dd549aa159a8fe357eb9,
+      type: 3}
+    spawnCoordinate: {x: 1, y: 4}

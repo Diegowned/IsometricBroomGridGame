@@ -10,12 +10,14 @@ MonoBehaviour:
   m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 58ec9f83a63cab24393eeb063edd48d8, type: 3}
-  m_Name: DefaultArena
+  m_Name: Tier2Boss
   m_EditorClassIdentifier: 
-  width: 11
-  height: 11
+  tier: 2
+  difficulty: 3
+  width: 5
+  height: 5
   emptyTiles: []
   enemies:
   - enemyPrefab: {fileID: 4643946010321537983, guid: c9e1ddd669b2dd549aa159a8fe357eb9,
       type: 3}
-    spawnCoordinate: {x: 5, y: 5}
+    spawnCoordinate: {x: 0, y: 0}

@@ -3,12 +3,11 @@ using System.Collections;
 using System.Collections.Generic;
 
 public class GridManager : MonoBehaviour {
-    // --- NEW: List of Arenas ---
-    [Header("Arena Sequence")]
-    public List<ArenaData> arenas;
-    private int currentArenaIndex = 0;
-
-    // These are now driven by the current ArenaData, so they are hidden from the Inspector
+    [Header("Map System")]
+    public MapManager mapManager;
+    public ArenaData currentArenaData; 
+    
+    // Hidden variables updated by the currentArenaData
     [HideInInspector] public int width;
     [HideInInspector] public int height;
     
@@ -31,59 +30,43 @@ public class GridManager : MonoBehaviour {
     private bool isTransitioning = false;
 
     void Start() {
-        if (arenas.Count == 0) {
-            Debug.LogError("No Arenas assigned to the GridManager!");
+        if (currentArenaData == null) {
+            Debug.LogError("No Starting Arena assigned to the GridManager! Please drag an ArenaData file into the Current Arena Data slot in the Inspector.");
             return;
         }
-        StartCoroutine(InitialSetupRoutine());
+        StartCoroutine(InitialSetupRoutine()); 
     }
 
-// --- RESTORED ANIMATION HELPER ---
-    private IEnumerator DelayedSlideIn(GridTile tile, float delay) {
-        tile.gameObject.SetActive(false); // Hide the tile while it waits
-        yield return new WaitForSeconds(delay); // Wait for the staggered delay
-        tile.gameObject.SetActive(true);
-        yield return StartCoroutine(tile.SlideIn(transitionDuration, transitionSlideOffset));
-    }
-
-    // --- NEW: Wrapper coroutine for the start of the game ---
     private IEnumerator InitialSetupRoutine() {
-        // 1. Build the very first arena
         yield return StartCoroutine(GenerateGridAnimated());
-        
-        // 2. Drop the enemies for the first arena
         yield return StartCoroutine(SpawnEnemies());
     }
 
-    public void EnemyDefeated(BossController enemy) {
+public void EnemyDefeated(BossController enemy) {
         activeEnemies.Remove(enemy);
         if (activeEnemies.Count == 0 && !isTransitioning) {
-            // --- NEW: Check if you beat the game ---
-            if (currentArenaIndex >= arenas.Count - 1) {
-                Debug.Log("YOU WIN! All arenas cleared.");
-                // Trigger a win screen here later
-            } else {
-                UnlockArenaExit();
+            // --- CHANGED: Unlock the physical door instead of opening the map immediately! ---
+            if (exitTile != null) {
+                exitTile.UnlockExit();
+                Debug.Log("Arena Cleared! Step on the green exit door to open the Map.");
             }
         }
     }
 
-    private void UnlockArenaExit() {
-        if (exitTile != null) {
-            exitTile.UnlockExit();
-            Debug.Log("Arena Cleared! Exit Unlocked.");
-        }
-    }
-
-    public void StartArenaTransition(PlayerController player) {
-        if (isTransitioning) return;
+    // Called by the Map UI when a player clicks a node
+    public void LoadNextArenaFromMap(ArenaData nextArena) {
+        currentArenaData = nextArena;
+        
+        // Find the player object and trigger the visual transition
+        PlayerController player = FindObjectOfType<PlayerController>(); 
         StartCoroutine(TransitionRoutine(player));
     }
 
     private IEnumerator TransitionRoutine(PlayerController player) {
         isTransitioning = true;
-        player.isTransitioning = true; 
+        if (player != null) player.isTransitioning = true; 
         
+        // 1. Slide out old arena
         if (entranceTile != null) StartCoroutine(entranceTile.SlideOut(transitionDuration, transitionSlideOffset));
         if (exitTile != null) StartCoroutine(exitTile.SlideOut(transitionDuration, transitionSlideOffset));
 
@@ -97,30 +80,30 @@ public class GridManager : MonoBehaviour {
 
         yield return new WaitForSeconds(transitionDuration + 0.5f); 
 
-        // --- NEW: Move to the next arena data ---
-        currentArenaIndex++;
-        ArenaData nextArena = arenas[currentArenaIndex];
-        width = nextArena.width;
-        height = nextArena.height;
+        // 2. Setup new dimensions
+        width = currentArenaData.width;
+        height = currentArenaData.height;
 
+        // 3. Reset player position
         int startX = width / 2;
         int startY = 0; 
-        player.currentX = startX;
-        player.currentY = startY;
-        player.transform.position = GetWorldPos(startX, startY);
+        if (player != null) {
+            player.currentX = startX;
+            player.currentY = startY;
+            player.transform.position = GetWorldPos(startX, startY);
+        }
 
+        // 4. Generate new grid and enemies
         yield return StartCoroutine(GenerateGridAnimated());
         yield return StartCoroutine(SpawnEnemies());
 
         isTransitioning = false;
-        player.isTransitioning = false; 
+        if (player != null) player.isTransitioning = false; 
     }
 
     private IEnumerator GenerateGridAnimated() {
-        // --- NEW: Fetch current arena data ---
-        ArenaData currentArena = arenas[currentArenaIndex];
-        width = currentArena.width;
-        height = currentArena.height;
+        width = currentArenaData.width;
+        height = currentArenaData.height;
 
         grid = new GridTile[width, height];
         int entryX = width / 2;
@@ -128,7 +111,7 @@ public class GridManager : MonoBehaviour {
         int exitX = width / 2;
         int exitY = height; 
 
-        // 1. Generate Protruding Entrance
+        // Generate Protruding Entrance
         Vector3 entPos = new Vector3(entryX * spacing, 0, entryY * spacing);
         GameObject entObj = Instantiate(tilePrefab, entPos, Quaternion.identity, transform);
         entranceTile = entObj.GetComponent<GridTile>();
@@ -136,12 +119,11 @@ public class GridManager : MonoBehaviour {
         entranceTile.SetupAsEntrance();
         StartCoroutine(DelayedSlideIn(entranceTile, 0f)); 
 
-        // 2. Generate Main Arena Layout
+        // Generate Main Arena Layout
         for (int x = 0; x < width; x++) {
             for (int y = 0; y < height; y++) {
-                // --- NEW: Check if this tile is marked as a "hole" in our layout ---
-                if (currentArena.emptyTiles.Contains(new Vector2Int(x, y))) {
-                    continue; // Skip building this tile!
+                if (currentArenaData.emptyTiles.Contains(new Vector2Int(x, y))) {
+                    continue; 
                 }
 
                 Vector3 pos = new Vector3(x * spacing, 0, y * spacing);
@@ -155,7 +137,7 @@ public class GridManager : MonoBehaviour {
             }
         }
 
-        // 3. Generate Protruding Exit
+        // Generate Protruding Exit
         Vector3 exitPos = new Vector3(exitX * spacing, 0, exitY * spacing);
         GameObject exitObj = Instantiate(tilePrefab, exitPos, Quaternion.identity, transform);
         exitTile = exitObj.GetComponent<GridTile>();
@@ -168,14 +150,17 @@ public class GridManager : MonoBehaviour {
         yield return new WaitForSeconds((exitDist * tileStaggerDelay) + transitionDuration);
     }
 
-    private IEnumerator SpawnEnemies() {
-        // --- NEW: Loop through the enemy list defined in the ArenaData ---
-        ArenaData currentArena = arenas[currentArenaIndex];
+    private IEnumerator DelayedSlideIn(GridTile tile, float delay) {
+        tile.gameObject.SetActive(false); 
+        yield return new WaitForSeconds(delay);
+        tile.gameObject.SetActive(true);
+        yield return StartCoroutine(tile.SlideIn(transitionDuration, transitionSlideOffset));
+    }
 
-        foreach (var enemyInfo in currentArena.enemies) {
+    private IEnumerator SpawnEnemies() {
+        foreach (var enemyInfo in currentArenaData.enemies) {
             Vector3 spawnPos = GetWorldPos(enemyInfo.spawnCoordinate.x, enemyInfo.spawnCoordinate.y) + new Vector3(0, 10f, 0); 
             
-            // Instantiate the specific prefab set in the Inspector
             GameObject enemyObj = Instantiate(enemyInfo.enemyPrefab, spawnPos, Quaternion.identity);
             BossController boss = enemyObj.GetComponent<BossController>();
             
@@ -188,14 +173,13 @@ public class GridManager : MonoBehaviour {
             StartCoroutine(DropEnemyRoutine(boss, spawnPos, targetPos));
         }
 
-        yield return new WaitForSeconds(0.5f); // Wait for drops to finish
+        yield return new WaitForSeconds(0.5f); 
     }
 
-    // Moved the drop animation to its own coroutine so multiple enemies drop at the same time
     private IEnumerator DropEnemyRoutine(BossController boss, Vector3 start, Vector3 end) {
         float elapsed = 0f;
         while (elapsed < 0.5f) {
-            if (boss == null) yield break; // Safety check
+            if (boss == null) yield break; 
             boss.transform.position = Vector3.Lerp(start, end, elapsed / 0.5f);
             elapsed += Time.deltaTime;
             yield return null;
@@ -210,7 +194,7 @@ public class GridManager : MonoBehaviour {
         if (x == width / 2 && y == height) return exitTile != null && exitTile.isWalkable;
 
         if (x < 0 || x >= width || y < 0 || y >= height) return false;
-        if (grid == null || grid[x, y] == null) return false; // Added safety check for empty layout tiles
+        if (grid == null || grid[x, y] == null) return false; 
         return grid[x, y].isWalkable;
     }
 
